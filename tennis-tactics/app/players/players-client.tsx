@@ -4,10 +4,24 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Player } from "../lib/players";
 
+type Props = { players: Player[] };
 type TourFilter = "ALL" | "ATP" | "WTA";
 
-export default function PlayersClient({ players }: { players: Player[] }) {
-  const [tour, setTour] = useState<TourFilter>("ALL");
+function tabButton(active: boolean) {
+  return [
+    "cursor-pointer select-none", // ✅ hand cursor + prevents text highlight
+    "px-3 py-1 rounded-full text-sm transition border",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900",
+    "disabled:opacity-60 disabled:cursor-not-allowed",
+    active
+      ? "bg-white/10 text-white border-white/20"
+      : "bg-gray-900/40 text-gray-300 border-gray-700 hover:text-white hover:border-gray-500/60",
+  ].join(" ");
+}
+
+export default function PlayersClient({ players }: Props) {
+  // ✅ Default to ATP
+  const [tour, setTour] = useState<TourFilter>("ATP");
   const [q, setQ] = useState("");
 
   const filtered = useMemo(() => {
@@ -23,10 +37,6 @@ export default function PlayersClient({ players }: { players: Player[] }) {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [players, tour, q]);
 
-  const pillBase =
-    "px-3 py-1 rounded-full text-sm transition bg-gray-900 text-gray-300 hover:text-white border border-gray-700";
-  const pillActive = "bg-gray-700 text-white border-gray-600";
-
   return (
     <main className="min-h-screen bg-gray-900 text-gray-100 py-6">
       <div className="mx-auto max-w-5xl px-6 space-y-6">
@@ -35,27 +45,16 @@ export default function PlayersClient({ players }: { players: Player[] }) {
           <p className="text-gray-400">Browse players (sample data for now).</p>
         </header>
 
+        {/* Filters */}
         <div className="rounded-2xl bg-gray-800 p-4 shadow space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setTour("ALL")}
-              className={`${pillBase} ${tour === "ALL" ? pillActive : ""}`}
-            >
+            <button type="button" onClick={() => setTour("ALL")} className={tabButton(tour === "ALL")}>
               All
             </button>
-            <button
-              type="button"
-              onClick={() => setTour("ATP")}
-              className={`${pillBase} ${tour === "ATP" ? pillActive : ""}`}
-            >
+            <button type="button" onClick={() => setTour("ATP")} className={tabButton(tour === "ATP")}>
               ATP
             </button>
-            <button
-              type="button"
-              onClick={() => setTour("WTA")}
-              className={`${pillBase} ${tour === "WTA" ? pillActive : ""}`}
-            >
+            <button type="button" onClick={() => setTour("WTA")} className={tabButton(tour === "WTA")}>
               WTA
             </button>
 
@@ -77,29 +76,28 @@ export default function PlayersClient({ players }: { players: Player[] }) {
           </div>
         </div>
 
+        {/* Grid */}
         {filtered.length === 0 ? (
-          <div className="rounded-2xl bg-gray-800 p-6 text-gray-400 shadow">
-            No players found.
-          </div>
+          <div className="rounded-2xl bg-gray-800 p-6 text-gray-400 shadow">No players found.</div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {filtered.map((p) => (
               <Link
                 key={p.id}
                 href={`/player/${p.id}`}
-                className="block rounded-2xl bg-gray-800 p-5 shadow hover:bg-white/5 transition border border-transparent hover:border-gray-700"
+                className="block rounded-2xl bg-gray-800 p-5 shadow hover:bg-white/5 transition border border-transparent hover:border-white/10"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1 min-w-0">
+                  <div className="min-w-0">
                     <div className="text-white font-semibold truncate">{p.name}</div>
-                    <div className="text-sm text-gray-400">
+                    <div className="mt-1 text-sm text-gray-400">
                       {p.country} • Handed: {p.handed}
                     </div>
                   </div>
 
-                  <div className="text-xs px-2 py-1 rounded-full bg-gray-900 border border-gray-700 text-gray-300">
+                  <span className="text-xs px-2 py-1 rounded-full border border-white/10 bg-white/[0.03] text-gray-200 font-semibold">
                     {p.tour}
-                  </div>
+                  </span>
                 </div>
               </Link>
             ))}

@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { RankingRow, Tour } from "../lib/rankings";
 
-type Props = { rankings: RankingRow[] };
+type Props = {
+  rankings: RankingRow[];
+  initialTour: Tour; // ✅ comes from URL now
+};
+
 type TourFilter = Tour; // "ATP" | "WTA"
 
 function movementPill(movement: number) {
@@ -18,20 +22,25 @@ function movementPill(movement: number) {
       </span>
     );
   }
-
   if (movement < 0) {
-    return (
-      <span className={`${base} border-rose-300/40 bg-rose-500/20 text-rose-100`}>
-        {movement}
-      </span>
-    );
+    return <span className={`${base} border-rose-300/40 bg-rose-500/20 text-rose-100`}>{movement}</span>;
   }
-
   return <span className={`${base} border-white/10 bg-white/[0.03] text-gray-300`}>—</span>;
 }
 
-export default function RankingsClient({ rankings }: Props) {
-  const [tour, setTour] = useState<TourFilter>("ATP");
+function tabButton(active: boolean) {
+  return [
+    "cursor-pointer select-none",
+    "px-3 py-1 rounded-full text-sm transition border",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900",
+    active
+      ? "bg-white/10 text-white border-white/20"
+      : "bg-gray-900/40 text-gray-300 border-gray-700 hover:text-white hover:border-gray-500/60",
+  ].join(" ");
+}
+
+export default function RankingsClient({ rankings, initialTour }: Props) {
+  const [tour, setTour] = useState<TourFilter>(initialTour);
   const [q, setQ] = useState("");
 
   const filtered = useMemo(() => {
@@ -41,15 +50,11 @@ export default function RankingsClient({ rankings }: Props) {
       .filter((r) => r.tour === tour)
       .filter((r) => {
         if (!query) return true;
-        const hay = `${r.playerName} ${r.country} ${r.rank}`.toLowerCase();
+        const hay = `${r.playerName} ${r.country} ${r.tour} ${r.rank}`.toLowerCase();
         return hay.includes(query);
       })
       .sort((a, b) => a.rank - b.rank);
   }, [rankings, tour, q]);
-
-  const pillBase =
-    "px-3 py-1 rounded-full text-sm transition bg-gray-900 text-gray-300 hover:text-white border border-gray-700 cursor-pointer";
-  const pillActive = "bg-gray-700 text-white border-gray-600";
 
   return (
     <main className="min-h-screen bg-gray-900 text-gray-100 py-6">
@@ -60,21 +65,12 @@ export default function RankingsClient({ rankings }: Props) {
         </header>
 
         {/* Filters */}
-        <div className="rounded-2xl bg-gray-800 p-4 shadow">
+        <div className="rounded-2xl bg-gray-800 p-4 shadow space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setTour("ATP")}
-              className={`${pillBase} ${tour === "ATP" ? pillActive : ""}`}
-            >
+            <button type="button" onClick={() => setTour("ATP")} className={tabButton(tour === "ATP")}>
               ATP
             </button>
-
-            <button
-              type="button"
-              onClick={() => setTour("WTA")}
-              className={`${pillBase} ${tour === "WTA" ? pillActive : ""}`}
-            >
+            <button type="button" onClick={() => setTour("WTA")} className={tabButton(tour === "WTA")}>
               WTA
             </button>
 
@@ -98,7 +94,7 @@ export default function RankingsClient({ rankings }: Props) {
 
         {/* Table */}
         <div className="rounded-2xl bg-gray-800 shadow overflow-hidden">
-          <div className="grid grid-cols-[80px_1fr_90px_110px_90px] border-b border-white/10 px-4 py-3 text-[11px] uppercase tracking-wide text-gray-400">
+          <div className="grid grid-cols-[80px_1fr_90px_110px_90px] gap-0 border-b border-white/10 px-4 py-3 text-[11px] uppercase tracking-wide text-gray-400">
             <div className="text-left">Rank</div>
             <div className="text-left">Player</div>
             <div className="text-left">Country</div>
@@ -120,7 +116,7 @@ export default function RankingsClient({ rankings }: Props) {
                   <div className="min-w-0">
                     <Link
                       href={`/player/${r.playerId}`}
-                      className="text-white font-semibold hover:text-white underline decoration-gray-600 hover:decoration-gray-300 transition truncate inline-block max-w-full"
+                      className="cursor-pointer text-white font-semibold hover:text-white underline decoration-gray-600 hover:decoration-gray-300 transition truncate inline-block max-w-full"
                       title={r.playerName}
                     >
                       {r.playerName}

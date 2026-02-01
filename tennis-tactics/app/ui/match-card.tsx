@@ -1,10 +1,13 @@
-"use client";
-
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { Match } from "../lib/matches";
 
-type Variant = "tournament" | "player" | "matches";
+type Variant = "matches" | "tournament" | "player";
+
+type Props = {
+  match: Match;
+  variant?: Variant;
+  highlightPlayerId?: string;
+};
 
 function formatTime(iso: string) {
   const d = new Date(iso);
@@ -19,189 +22,131 @@ function formatTime(iso: string) {
   }).format(d);
 }
 
-function statusPillClass(status: "upcoming" | "live" | "finished") {
-  const base = "text-xs px-2 py-1 rounded-full border";
-  if (status === "live") return `${base} border-rose-500/30 text-rose-200 bg-rose-500/10`;
-  if (status === "finished") return `${base} border-emerald-500/30 text-emerald-200 bg-emerald-500/10`;
-  return `${base} border-gray-600 text-gray-200 bg-white/5`;
+function statusPill(status: "upcoming" | "live" | "finished") {
+  const base = "text-xs px-2 py-1 rounded-full border leading-none font-semibold tracking-wide";
+  if (status === "live") return `${base} border-rose-500/35 text-rose-100 bg-rose-500/15`;
+  if (status === "finished") return `${base} border-emerald-500/35 text-emerald-100 bg-emerald-500/15`;
+  return `${base} border-sky-500/30 text-sky-100 bg-sky-500/12`;
 }
 
-function resultBadgeClass(result: "W" | "L") {
-  const base = "text-xs px-2 py-1 rounded-full border";
-  if (result === "W") return `${base} border-emerald-500/30 text-emerald-200 bg-emerald-500/10`;
-  return `${base} border-rose-500/30 text-rose-200 bg-rose-500/10`;
+function scoreSplit(score?: string) {
+  if (!score) return { s1: "", s2: "" };
+  const parts = score.split(/\s+/);
+  return { s1: parts[0] ?? "", s2: parts[1] ?? "" };
 }
 
-function stop(e: React.SyntheticEvent) {
-  e.stopPropagation();
+function rowClass(isWinner: boolean, isHighlighted: boolean) {
+  return [
+    "flex items-center justify-between gap-3",
+    "rounded-xl border px-4 py-3",
+    "min-h-[52px]",
+    isWinner
+      ? "border-emerald-400/35 bg-emerald-500/12 shadow-[inset_4px_0_0_0_rgba(16,185,129,0.45)]"
+      : "border-white/10 bg-white/[0.02]",
+    isHighlighted ? "ring-1 ring-white/10" : "",
+  ].join(" ");
 }
 
-export function MatchCard({
-  match,
-  variant,
-  highlightPlayerId,
-}: {
-  match: Match;
-  variant: Variant;
-  highlightPlayerId?: string;
-}) {
-  const router = useRouter();
+function linkBase() {
+  return [
+    "cursor-pointer select-none",
+    "text-gray-200 hover:text-white underline decoration-gray-600 hover:decoration-gray-300 transition",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900",
+  ].join(" ");
+}
 
-  const onCardClick = () => router.push(`/match/${match.id}`);
+function miniChip() {
+  return [
+    "cursor-pointer select-none",
+    "inline-flex items-center justify-center h-7 px-3 rounded-full border text-[11px] font-semibold tracking-wide leading-none",
+    "border-white/10 bg-white/[0.03] text-gray-200 hover:text-white hover:border-white/20 transition",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900",
+  ].join(" ");
+}
 
-  const onCardKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      router.push(`/match/${match.id}`);
-    }
-  };
+function h2hHref(tour: string, p1: string, p2: string) {
+  // stable ordering so the same pair always yields the same URL
+  const a = p1 < p2 ? p1 : p2;
+  const b = p1 < p2 ? p2 : p1;
+  return `/h2h?tour=${encodeURIComponent(tour)}&p1=${encodeURIComponent(a)}&p2=${encodeURIComponent(b)}`;
+}
 
-  // Player page variant: show W/L for the highlighted player (when finished)
-  const result =
-    variant === "player" &&
-    highlightPlayerId &&
-    match.status === "finished" &&
-    match.winnerId
-      ? match.winnerId === highlightPlayerId
-        ? ("W" as const)
-        : ("L" as const)
-      : null;
+export function MatchCard({ match: m, variant = "matches", highlightPlayerId }: Props) {
+  const { s1, s2 } = scoreSplit(m.score);
 
-  const isHighlightedP1 =
-    variant === "player" && highlightPlayerId ? match.p1.id === highlightPlayerId : false;
+  const isFinished = m.status === "finished" && !!m.winnerId;
+  const p1Winner = isFinished && m.winnerId === m.p1.id;
+  const p2Winner = isFinished && m.winnerId === m.p2.id;
 
-  const opponent =
-    variant === "player" && highlightPlayerId
-      ? isHighlightedP1
-        ? match.p2
-        : match.p1
-      : null;
-
-  const metaLine =
-    variant === "tournament" ? (
-      <>
-        {match.round} • {formatTime(match.startTime)} (UTC)
-      </>
-    ) : variant === "player" ? (
-      <>
-        {match.tour} •{" "}
-        <Link
-          href={`/tournament/${match.tournamentId}`}
-          onClick={stop}
-          className="text-gray-200 hover:text-white underline decoration-gray-600 hover:decoration-gray-300 transition"
-        >
-          {match.tournamentName}
-        </Link>{" "}
-        • {match.round} • {formatTime(match.startTime)} (UTC)
-      </>
-    ) : (
-      <>
-        {match.tour} •{" "}
-        <Link
-          href={`/tournament/${match.tournamentId}`}
-          onClick={stop}
-          className="text-gray-200 hover:text-white underline decoration-gray-600 hover:decoration-gray-300 transition"
-        >
-          {match.tournamentName}
-        </Link>{" "}
-        • {match.round} • {formatTime(match.startTime)} (UTC)
-      </>
-    );
+  const p1Highlighted = !!highlightPlayerId && m.p1.id === highlightPlayerId;
+  const p2Highlighted = !!highlightPlayerId && m.p2.id === highlightPlayerId;
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onCardClick}
-      onKeyDown={onCardKeyDown}
-      className={[
-        "group relative rounded-2xl bg-gray-800 p-5 shadow transition",
-        "cursor-pointer select-none",
-        "border border-transparent hover:border-gray-700/80",
-        "hover:bg-white/5",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500/60",
-      ].join(" ")}
-      aria-label={`Open match: ${match.p1.name} vs ${match.p2.name}`}
-    >
-      {/* Subtle chevron cue */}
-      <div className="pointer-events-none absolute right-4 top-4 text-gray-500 transition group-hover:translate-x-0.5 group-hover:text-gray-300">
-        →
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 pr-8">
-        <div className="text-sm text-gray-400">{metaLine}</div>
+    <div className="rounded-2xl bg-gray-800 p-5 shadow border border-transparent hover:border-white/10 transition">
+      {/* Meta row */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm text-gray-400">
+          {m.tour} •{" "}
+          <Link href={`/tournament/${m.tournamentId}`} className={linkBase()}>
+            {m.tournamentName}
+          </Link>{" "}
+          • {m.round} • {formatTime(m.startTime)} (UTC)
+        </div>
 
         <div className="flex items-center gap-2">
-          {result ? <span className={resultBadgeClass(result)}>{result}</span> : null}
-          <span className={statusPillClass(match.status)}>{match.status.toUpperCase()}</span>
+          <span className={statusPill(m.status)}>{m.status.toUpperCase()}</span>
 
-          {/* explicit link (also stops propagation) */}
-          <Link
-            href={`/match/${match.id}`}
-            onClick={stop}
-            className="text-xs px-2 py-1 rounded-full bg-gray-900 text-gray-200 hover:text-white border border-gray-700 hover:border-gray-500 transition whitespace-nowrap"
-          >
-            Open match
+          {/* ✅ H2H now includes tour so WTA matches lock to WTA */}
+          <Link href={h2hHref(m.tour, m.p1.id, m.p2.id)} className={miniChip()}>
+            H2H
+          </Link>
+
+          {/* ✅ renamed and positioned after H2H */}
+          <Link href={`/match/${m.id}`} className={miniChip()}>
+            View Match
           </Link>
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2">
-        {variant === "player" && highlightPlayerId && opponent ? (
-          <>
-            <div className="flex items-center justify-between">
-              <span className="text-white font-semibold">
-                {isHighlightedP1 ? match.p1.name : match.p2.name}
+      {/* Players */}
+      <div className="mt-4 grid gap-3">
+        <div className={rowClass(p1Winner, p1Highlighted)}>
+          <Link
+            href={`/player/${m.p1.id}`}
+            className="min-w-0 truncate text-white font-semibold hover:text-white underline decoration-gray-600 hover:decoration-gray-300 transition"
+          >
+            {m.p1.name}
+          </Link>
+          <div className="flex items-center gap-3">
+            <span className="tabular-nums text-gray-300">{s1}</span>
+            {p1Winner ? (
+              <span className="inline-flex items-center justify-center h-7 px-3 rounded-full border border-emerald-300/50 bg-emerald-500/30 text-emerald-50 text-[11px] font-semibold leading-none">
+                WINNER
               </span>
-              <span className="text-gray-500 text-sm">{isHighlightedP1 ? "P1" : "P2"}</span>
-            </div>
+            ) : (
+              <span className="text-xs text-gray-600"> </span>
+            )}
+          </div>
+        </div>
 
-            <div className="flex items-center justify-between">
-              <Link
-                href={`/player/${opponent.id}`}
-                onClick={stop}
-                className="text-gray-200 hover:text-white underline decoration-gray-600 hover:decoration-gray-300 transition"
-              >
-                {opponent.name}
-              </Link>
-              <span className="text-gray-600 text-sm">{isHighlightedP1 ? "P2" : "P1"}</span>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex items-center justify-between">
-              <Link
-                href={`/player/${match.p1.id}`}
-                onClick={stop}
-                className="text-gray-200 hover:text-white underline decoration-gray-600 hover:decoration-gray-300 transition"
-              >
-                {match.p1.name}
-              </Link>
-              <span className="text-gray-500 text-sm">P1</span>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Link
-                href={`/player/${match.p2.id}`}
-                onClick={stop}
-                className="text-gray-200 hover:text-white underline decoration-gray-600 hover:decoration-gray-300 transition"
-              >
-                {match.p2.name}
-              </Link>
-              <span className="text-gray-600 text-sm">P2</span>
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="mt-3 text-sm text-gray-400">
-        {match.score
-          ? `Score: ${match.score}`
-          : match.status === "upcoming"
-          ? "Scheduled"
-          : match.status === "live"
-          ? "Live score will appear here."
-          : "Final score unavailable."}
+        <div className={rowClass(p2Winner, p2Highlighted)}>
+          <Link
+            href={`/player/${m.p2.id}`}
+            className="min-w-0 truncate text-gray-200 font-semibold hover:text-white underline decoration-gray-600 hover:decoration-gray-300 transition"
+          >
+            {m.p2.name}
+          </Link>
+          <div className="flex items-center gap-3">
+            <span className="tabular-nums text-gray-300">{s2}</span>
+            {p2Winner ? (
+              <span className="inline-flex items-center justify-center h-7 px-3 rounded-full border border-emerald-300/50 bg-emerald-500/30 text-emerald-50 text-[11px] font-semibold leading-none">
+                WINNER
+              </span>
+            ) : (
+              <span className="text-xs text-gray-600"> </span>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
